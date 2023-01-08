@@ -11,8 +11,16 @@ purpleColour="\e[0;35m\033[1m"
 turquoiseColour="\e[0;36m\033[1m"
 grayColour="\e[0;37m\033[1m"
 
-#ruta donde se guardara el fichero
-ruta="$(echo ~/Desktop/Passwords)"
+
+#ruta Default
+dataBuscar="$(echo Data)"
+
+#data obtenida del usuario
+ruta=0
+pass=0
+
+#secretKey Default
+secretKey="ContraSecreta8794213"
 
 #para imprimir
 valor="$(cat $ruta | tr '_' ' ' | tr '&' '_')"
@@ -118,9 +126,12 @@ function helpPanel(){
 
 	echo -e "\n\n\t${blueColour}-------------------------[${endColour}${greenColour} FUNCIONES DEL SISTEMA ${endColour}${blueColour}]-------------------------${endColour}"
     echo -e "\n\n\t${blueColour}|${endColour}${greenColour} PASSWORD ${endColour}${blueColour}|${endColour}"
-    echo -e "\n\t\t${blueColour}[${endColour}${turquoiseColour}-p${endColour}${blueColour}]${endColour}\t${yellowColour}-[Lista Que Password Tenemos]-${endColour}"    
+    echo -e "\n\t\t${blueColour}[${endColour}${turquoiseColour}-p${endColour}${blueColour}]${endColour}\t${yellowColour}-[Lista Que Cuentas]-${endColour}"    
     echo -e "\n\t\t${blueColour}[${endColour}${turquoiseColour}-c${endColour}${blueColour}]${endColour}\t${yellowColour}-[Crea Password]-${endColour}"    
     echo -e "\n\t\t${blueColour}[${endColour}${turquoiseColour}-d${endColour}${blueColour}]${endColour}\t${yellowColour}-[Revela Password]-${endColour}"    
+    echo -e "\n\n\t${blueColour}|${endColour}${greenColour} CONFIG ${endColour}${blueColour}|${endColour}"
+    echo -e "\n\t\t${blueColour}[${endColour}${turquoiseColour}-np${endColour}${blueColour}]${endColour}\t${yellowColour}-[Cambiar Secret Key]-${endColour}"    
+    echo -e "\n\t\t${blueColour}[${endColour}${turquoiseColour}-nd${endColour}${blueColour}]${endColour}\t${yellowColour}-[Cambiar Direccion]-${endColour}"    
 
 	tput cnorm
 }
@@ -139,6 +150,71 @@ function listarPassword(){
             echo -e ${endColour}
         fi
     fi
+}
+
+function traerData(){
+    find $dataBuscar >/dev/null 2>&1
+    if [ "$(echo $? )" == "1" ]; then
+        echo -e "\n${greenColour}[!] PREPARANDO ENTORNO${endColour}"
+        mkdir Data/
+    fi
+
+    find $dataBuscar/dire >/dev/null 2>&1
+    if [ "$(echo $? )" == "1" ]; then
+        touch Data/dire
+        echo 0 >> Data/dire
+    fi
+
+    find $dataBuscar/pass >/dev/null 2>&1
+
+    if [ "$(echo $? )" == "1" ]; then
+        touch Data/pass
+        echo 0 >> Data/pass
+    fi
+
+    ruta="$(cat $dataBuscar/dire)"
+    pass="$(cat $dataBuscar/pass)"
+} 
+
+function validar(){
+    traerData
+    local dataRuta=$ruta
+    local dataPass=$pass
+    local n=0
+    if [ $dataPass == 0 ]; then
+        echo -e "\n\n\t${blueColour}-------------------------[${endColour}${greenColour} VERIFICACION DE INFORMACION ${endColour}${blueColour}]-------------------------${endColour}"
+        while
+            echo -ne "\n\t${blueColour}|${endColour}${greenColour} DESEA CREAR SU SECRET KEY? O UTILIZAR UNA POR DEFAULT? ${endColour}${blueColour}|${endColour} ${grayColour}(1| Yes) (2| No)${endColour} = " && read n
+        [[ $n == n || $n == *[^1-2]* ]]
+        do true; done
+
+        if [ $n -eq 1 ]; then
+            echo -ne "\n\t${blueColour}|${endColour}${greenColour} INGRESE SECRET KEY ${endColour}${blueColour}|${endColour} = " && read secretKey
+
+        elif [ $n -eq 2 ]; then
+            echo -e "\n\t${blueColour}|${endColour}${greenColour} SECRET KEY SE GUARDARA ${endColour}${blueColour}|${endColour}"
+        fi
+
+        echo $secretKey | base64 > $dataBuscar/pass
+    fi
+
+    if [ $dataRuta == 0 ]; then
+        while
+            echo -ne "\n\t${blueColour}|${endColour}${greenColour} DESEA CREAR SU RUTA? O UTILIZAR UNA POR DEFAULT? ${endColour}${blueColour}|${endColour} ${grayColour}(1| Yes) (2| No)${endColour} = " && read n
+        [[ $n == n || $n == *[^1-2]* ]]
+        do true; done
+
+        if [ $n -eq 1 ]; then
+            echo -ne "\n\t${blueColour}|${endColour}${greenColour} INGRESE SU RUTA ${endColour}${blueColour}|${endColour} = " && read rutaKey
+
+        elif [ $n -eq 2 ]; then
+            echo -e "\n\t${blueColour}|${endColour}${greenColour} SECRET RUTA SE GUARDARA ${endColour}${blueColour}|${endColour}"
+        fi
+
+        echo $rutaKey | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:$secretKey > $dataBuscar/dire
+    fi
+
+    helpPanel
 }
 
 function crearPassword(){
@@ -160,7 +236,6 @@ function crearPassword(){
     
     valor=$(echo password | openssl enc -aes-256-cbc -md sha512 -a -pbkdf2 -iter 100000 -salt -pass pass:'pick.your.password')
     echo "|Cuenta_"$cuenta"| |Usuario_"$usuario"| |Correo_"$correo"| |Password_"$valor"|$(\n)" >> $ruta
-
 }
 
 function verPassword(){
@@ -179,11 +254,10 @@ declare -i parameter_counter=0; while getopts "p:c:d:h:" arg; do
 	esac
 
 done
-
-    if [ $parameter_counter -eq 0 ]; then
-        helpPanel
-    else
     clear
+    if [ $parameter_counter -eq 0 ]; then
+        validar
+    else
         if [ "$(echo $opcion_p)" == "PASSWORD" ]; then
             listarPassword
         elif [ "$(echo $opcion_c)" == "PASSWORD" ]; then
